@@ -288,7 +288,6 @@
     <div class="chatbot-header">
       <div class="header-badge">🧠 RAG AI</div>
       <div class="header-controls">
-        <button class="control-btn" onclick="toggleSettings()" title="API 설정">⚙️</button>
         <button class="control-btn" onclick="clearChat()" title="대화 초기화">🗑️</button>
       </div>
       <div class="header-title">부산시 여권발급 민원 상담</div>
@@ -328,8 +327,8 @@
     </div>
 
     <div class="api-status" id="apiStatus">
-      <span class="status-dot disconnected"></span>
-      API 연결 상태를 확인하고 있습니다...
+      <span class="status-dot connected"></span>
+      CLOVA Studio RAG API 연결 완료
     </div>
 
     <div class="input-area">
@@ -342,51 +341,12 @@
     </div>
   </div>
 
-  <!-- Settings Panel -->
-  <div class="settings-panel" id="settingsPanel">
-    <div class="settings-content">
-      <div class="settings-header">
-        <h3>CLOVA Studio RAG API 설정</h3>
-        <button class="close-btn" onclick="toggleSettings()">✕</button>
-      </div>
-      
-      <div class="form-group">
-        <label for="apiEndpoint">API 엔드포인트</label>
-        <input type="text" id="apiEndpoint" 
-               placeholder="https://clovastudio.stream.ntruss.com/v1/api-tools/rag-reasoning"
-               value="https://clovastudio.stream.ntruss.com/v1/api-tools/rag-reasoning">
-      </div>
-      
-      <div class="form-group">
-        <label for="apiKey">API 키</label>
-        <input type="password" id="apiKey" placeholder="nv-xxx..." value="">
-      </div>
-      
-      <div class="form-group">
-        <label for="serviceId">서비스 ID</label>
-        <input type="text" id="serviceId" placeholder="68ad0c206251e148f1b5f32" value="">
-      </div>
-      
-      <div class="form-group">
-        <label for="systemPrompt">시스템 프롬프트</label>
-        <textarea id="systemPrompt" placeholder="AI 역할 정의">당신은 부산광역시 여권발급 업무 전문 상담원입니다. 여권 신규발급, 재발급, 필요서류, 수수료, 절차 등에 대한 정확하고 최신의 정보를 제공하세요. 답변할 때는 관련 법령이나 공식 문서의 근거를 제시하고, 불확실한 내용은 명확히 표현하세요. 부산시민의 입장에서 친절하고 이해하기 쉽게 안내해주세요.</textarea>
-      </div>
-      
-      <div class="form-group">
-        <label for="temperature">Temperature (0.0 - 1.0)</label>
-        <input type="number" id="temperature" min="0" max="1" step="0.1" value="0.3">
-      </div>
-      
-      <button class="save-btn" onclick="saveApiSettings()">설정 저장 및 연결 테스트</button>
-    </div>
-  </div>
-
   <script>
-    // RAG AI 챗봇 설정
+    // CLOVA Studio RAG API 설정 (직접 포함)
     let apiConfig = {
       endpoint: 'https://clovastudio.stream.ntruss.com/v1/api-tools/rag-reasoning',
-      apiKey: '',
-      serviceId: '',
+      apiKey: 'nv-ceca62faf8a64773af2ab06a4981207df1',
+      serviceId: '68ad0c206251e148f1b5f32',
       systemPrompt: '당신은 부산광역시 여권발급 업무 전문 상담원입니다. 여권 신규발급, 재발급, 필요서류, 수수료, 절차 등에 대한 정확하고 최신의 정보를 제공하세요. 답변할 때는 관련 법령이나 공식 문서의 근거를 제시하고, 불확실한 내용은 명확히 표현하세요. 부산시민의 입장에서 친절하고 이해하기 쉽게 안내해주세요.',
       temperature: 0.3
     };
@@ -396,86 +356,24 @@
 
     // 초기화
     document.addEventListener('DOMContentLoaded', function() {
-      loadSavedSettings();
-      checkApiConnection();
+      // API 연결 상태 표시
+      updateApiStatus('connected', 'CLOVA Studio RAG API 연결 완료');
+      console.log('부산시 여권발급 민원 RAG AI 챗봇 초기화 완료');
     });
 
-    // 설정 저장/로드
-    function loadSavedSettings() {
-      const saved = localStorage.getItem('busanPassportChatbotConfig');
-      if (saved) {
-        try {
-          const config = JSON.parse(saved);
-          apiConfig = { ...apiConfig, ...config };
-        } catch (e) {
-          console.log('설정 로드 실패:', e);
-        }
-      }
-    }
-
-    function saveSettings() {
-      localStorage.setItem('busanPassportChatbotConfig', JSON.stringify(apiConfig));
-    }
-
-    // 설정 패널
-    function toggleSettings() {
-      const panel = document.getElementById('settingsPanel');
-      const isVisible = panel.style.display === 'flex';
-      panel.style.display = isVisible ? 'none' : 'flex';
-      
-      if (!isVisible) {
-        document.getElementById('apiEndpoint').value = apiConfig.endpoint;
-        document.getElementById('apiKey').value = apiConfig.apiKey;
-        document.getElementById('serviceId').value = apiConfig.serviceId;
-        document.getElementById('systemPrompt').value = apiConfig.systemPrompt;
-        document.getElementById('temperature').value = apiConfig.temperature;
-      }
-    }
-
-    function saveApiSettings() {
-      apiConfig.endpoint = document.getElementById('apiEndpoint').value.trim();
-      apiConfig.apiKey = document.getElementById('apiKey').value.trim();
-      apiConfig.serviceId = document.getElementById('serviceId').value.trim();
-      apiConfig.systemPrompt = document.getElementById('systemPrompt').value.trim();
-      apiConfig.temperature = parseFloat(document.getElementById('temperature').value);
-      
-      saveSettings();
-      checkApiConnection();
-      toggleSettings();
-    }
-
-    // API 연결 상태 확인
-    async function checkApiConnection() {
-      const statusElement = document.getElementById('apiStatus');
-      
-      if (!apiConfig.apiKey || !apiConfig.serviceId) {
-        updateApiStatus('error', 'API 키와 서비스 ID를 설정해주세요');
-        return;
-      }
-
-      try {
-        updateApiStatus('connecting', 'API 연결을 확인하는 중...');
-        
-        // 간단한 연결 테스트
-        const testMessage = "연결 테스트";
-        const response = await callRagApi(testMessage, true);
-        
-        if (response) {
-          updateApiStatus('connected', 'CLOVA Studio RAG API 연결됨');
-          setTimeout(() => {
-            statusElement.style.display = 'none';
-          }, 3000);
-        }
-      } catch (error) {
-        updateApiStatus('error', `연결 실패: ${error.message}`);
-      }
-    }
-
+    // API 상태 업데이트
     function updateApiStatus(status, message) {
       const statusElement = document.getElementById('apiStatus');
       statusElement.className = `api-status ${status}`;
       statusElement.innerHTML = `<span class="status-dot ${status === 'connected' ? 'connected' : 'disconnected'}"></span>${message}`;
       statusElement.style.display = 'block';
+      
+      // 3초 후 숨기기
+      if (status === 'connected') {
+        setTimeout(() => {
+          statusElement.style.display = 'none';
+        }, 3000);
+      }
     }
 
     // 메시지 관리
@@ -516,21 +414,16 @@
     }
 
     // RAG API 호출
-    async function callRagApi(message, isTest = false) {
+    async function callRagApi(message) {
       if (!apiConfig.endpoint || !apiConfig.apiKey) {
         throw new Error('API 설정이 완료되지 않았습니다');
       }
 
       const messages = [
-        { role: "system", content: apiConfig.systemPrompt }
+        { role: "system", content: apiConfig.systemPrompt },
+        ...conversationHistory,
+        { role: "user", content: message }
       ];
-
-      if (!isTest) {
-        messages.push(...conversationHistory);
-        messages.push({ role: "user", content: message });
-      } else {
-        messages.push({ role: "user", content: "안녕하세요" });
-      }
 
       const requestBody = {
         messages: messages,
@@ -712,13 +605,6 @@
         `;
       }
     }
-
-    // 설정 패널 외부 클릭 시 닫기
-    document.getElementById('settingsPanel').addEventListener('click', function(e) {
-      if (e.target === this) {
-        toggleSettings();
-      }
-    });
   </script>
 </body>
 </html>
