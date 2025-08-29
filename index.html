@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>부산시 여권발급 민원 RAG AI 상담</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: 'Segoe UI', Taejaewoo, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      display: flex; justify-content: center; align-items: center;
+      height: 100vh; margin: 0; position: relative;
+    }
+    
+    .chatbot-container {
+      width: 420px; height: 750px; background: #fff;
+      border-radius: 20px; box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+      display: flex; flex-direction: column; overflow: hidden;
+      position: relative;
+    }
+    
+    .chatbot-header {
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: white; padding: 20px; text-align: center; position: relative;
+    }
+    
+    .header-badge {
+      position: absolute; top: 12px; left: 12px;
+      background: rgba(34, 197, 94, 0.9); color: white;
+      padding: 4px 8px; border-radius: 10px; font-size: 10px;
+      font-weight: 600; display: flex; align-items: center; gap: 4px;
+    }
+    
+    .header-controls {
+      position: absolute; top: 12px; right: 12px;
+      display: flex; gap: 8px;
+    }
+    
+    .control-btn {
+      width: 28px; height: 28px; border: none; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2); color: white;
+      cursor: pointer; font-size: 12px; transition: all 0.2s;
+    }
+    
+    .control-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.1);
+    }
+    
+    .header-title {
+      font-size: 18px; font-weight: 600; margin-bottom: 4px;
+    }
+    
+    .header-subtitle {
+      font-size: 12px; opacity: 0.9;
+    }
+    
+    .chat-messages {
+      flex: 1; padding: 20px; overflow-y: auto; background: #f8fafc;
+      scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent;
+    }
+    
+    .chat-messages::-webkit-scrollbar { width: 4px; }
+    .chat-messages::-webkit-scrollbar-track { background: transparent; }
+    .chat-messages::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+    
+    .message {
+      margin-bottom: 16px; display: flex; align-items: flex-end;
+      animation: slideIn 0.3s ease-out;
+    }
+    
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .message.user { justify-content: flex-end; }
+    .message.bot { justify-content: flex-start; }
+    
+    .message-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      margin: 0 8px; display: flex; align-items: center; justify-content: center;
+      font-size: 14px; flex-shrink: 0;
+    }
+    
+    .bot-avatar {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+    }
+    
+    .user-avatar {
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      color: white;
+    }
+    
+    .message-bubble {
+      max-width: 70%; padding: 12px 16px; border-radius: 16px;
+      font-size: 14px; line-height: 1.5; position: relative;
+    }
+    
+    .message.user .message-bubble {
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      color: white;
+    }
+    
+    .message.bot .message-bubble {
+      background: white; color: #374151;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .typing-indicator {
+      display: none; align-items: center; margin-bottom: 16px;
+    }
+    
+    .typing-bubble {
+      background: #f3f4f6; border: 1px dashed #9ca3af;
+      color: #6b7280; font-style: italic;
+      padding: 12px 16px; border-radius: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid #e5e7eb; border-top: 2px solid #3b82f6;
+      border-radius: 50%; animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .reference-sources {
+      margin-top: 10px; padding: 10px; background: #eff6ff;
+      border-left: 3px solid #3b82f6; border-radius: 0 8px 8px 0;
+      font-size: 11px; color: #1e40af; line-height: 1.4;
+    }
+    
+    .reference-sources strong {
+      display: block; margin-bottom: 6px; font-size: 12px;
+    }
+    
+    .quick-suggestions {
+      padding: 0 20px 15px; display: flex; flex-wrap: wrap; gap: 8px;
+    }
+    
+    .suggestion-chip {
+      background: white; border: 1px solid #d1d5db;
+      border-radius: 20px; padding: 8px 14px; font-size: 12px;
+      cursor: pointer; transition: all 0.2s; color: #4b5563;
+    }
+    
+    .suggestion-chip:hover {
+      background: #f9fafb; border-color: #3b82f6;
+      color: #3b82f6; transform: translateY(-1px);
+    }
+    
+    .input-area {
+      padding: 20px; background: white; border-top: 1px solid #e5e7eb;
+    }
+    
+    .input-container {
+      display: flex; align-items: center; gap: 12px; position: relative;
+    }
+    
+    .message-input {
+      flex: 1; padding: 12px 16px; border: 1px solid #d1d5db;
+      border-radius: 24px; font-size: 14px; outline: none;
+      background: #f9fafb; transition: all 0.2s;
+    }
+    
+    .message-input:focus {
+      border-color: #3b82f6; background: white;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .send-button {
+      width: 44px; height: 44px; border: none; border-radius: 50%;
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      color: white; cursor: pointer; font-size: 16px;
+      transition: all 0.2s; display: flex; align-items: center; justify-content: center;
+    }
+    
+    .send-button:hover:not(:disabled) {
+      transform: scale(1.05); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+    
+    .send-button:disabled {
+      opacity: 0.5; cursor: not-allowed;
+    }
+    
+    .api-status {
+      position: absolute; bottom: 90px; left: 20px; right: 20px;
+      background: #f3f4f6; border: 1px solid #d1d5db;
+      border-radius: 8px; padding: 8px 12px; font-size: 11px;
+      color: #6b7280; display: none; text-align: center;
+    }
+    
+    .api-status.connected {
+      background: #dcfce7; border-color: #16a34a; color: #15803d;
+    }
+    
+    .api-status.error {
+      background: #fef2f2; border-color: #dc2626; color: #dc2626;
+    }
+    
+    .settings-panel {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6); display: none; justify-content: center;
+      align-items: center; z-index: 1000;
+    }
+    
+    .settings-content {
+      background: white; border-radius: 16px; padding: 24px;
+      width: 90%; max-width: 480px; max-height: 80vh; overflow-y: auto;
+    }
+    
+    .settings-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .settings-header h3 { font-size: 18px; color: #111827; }
+    
+    .close-btn {
+      background: none; border: none; font-size: 20px;
+      cursor: pointer; color: #6b7280; padding: 4px;
+      border-radius: 4px; transition: background 0.2s;
+    }
+    
+    .close-btn:hover { background: #f3f4f6; }
+    
+    .form-group { margin-bottom: 16px; }
+    
+    .form-group label {
+      display: block; margin-bottom: 6px; font-weight: 500;
+      color: #374151; font-size: 14px;
+    }
+    
+    .form-group input, .form-group textarea {
+      width: 100%; padding: 10px 12px; border: 1px solid #d1d5db;
+      border-radius: 8px; font-size: 14px; outline: none;
+      transition: border-color 0.2s;
+    }
+    
+    .form-group input:focus, .form-group textarea:focus {
+      border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .form-group textarea { resize: vertical; min-height: 80px; }
+    
+    .save-btn {
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      color: white; border: none; padding: 12px 24px; border-radius: 8px;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      transition: all 0.2s; width: 100%;
+    }
+    
+    .save-btn:hover {
+      transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+    
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      display: inline-block; margin-right: 6px;
+    }
+    
+    .status-dot.connected { background: #10b981; }
+    .status-dot.disconnected { background: #ef4444; }
+    
+    .error-message {
+      background: #fef2f2; border: 1px solid #fecaca;
+      color: #dc2626; padding: 12px; border-radius: 8px;
+      font-size: 13px; margin-top: 8px;
+    }
+    
+    @media (max-width: 480px) {
+      .chatbot-container { width: 95%; height: 90vh; }
+      .message-bubble { max-width: 85%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="chatbot-container">
+    <div class="chatbot-header">
+      <div class="header-badge">🧠 RAG AI</div>
+      <div class="header-controls">
+        <button class="control-btn" onclick="toggleSettings()" title="API 설정">⚙️</button>
+        <button class="control-btn" onclick="clearChat()" title="대화 초기화">🗑️</button>
+      </div>
+      <div class="header-title">부산시 여권발급 민원 상담</div>
+      <div class="header-subtitle">AI 기반 실시간 문서 검색 서비스</div>
+    </div>
+
+    <div class="chat-messages" id="chatMessages">
+      <div class="message bot">
+        <div class="message-avatar bot-avatar">🤖</div>
+        <div class="message-bubble">
+          안녕하세요! 부산광역시 여권발급 민원 전담 AI 상담원입니다.<br><br>
+          <strong>제공 서비스:</strong><br>
+          • 여권 신규발급/재발급 안내<br>
+          • 필요서류 및 수수료 정보<br>
+          • 발급절차 및 소요기간<br>
+          • 온라인 신청 방법<br><br>
+          여권 관련 궁금한 점을 언제든 질문해주세요.
+        </div>
+      </div>
+    </div>
+
+    <div class="quick-suggestions" id="quickSuggestions">
+      <div class="suggestion-chip" onclick="askQuestion('신규 여권 발급 방법 알려주세요')">신규 발급 방법</div>
+      <div class="suggestion-chip" onclick="askQuestion('여권 재발급 필요서류는 무엇인가요')">재발급 서류</div>
+      <div class="suggestion-chip" onclick="askQuestion('여권 발급 수수료를 알려주세요')">발급 수수료</div>
+      <div class="suggestion-chip" onclick="askQuestion('여권 발급 소요시간은 얼마나 걸리나요')">소요시간</div>
+      <div class="suggestion-chip" onclick="askQuestion('온라인으로 여권 신청할 수 있나요')">온라인 신청</div>
+      <div class="suggestion-chip" onclick="askQuestion('여권 사진 규격 기준을 알려주세요')">사진 규격</div>
+    </div>
+
+    <div class="typing-indicator" id="typingIndicator">
+      <div class="message-avatar bot-avatar">🤖</div>
+      <div class="typing-bubble">
+        <div class="spinner"></div>
+        관련 문서를 검색하고 분석하는 중...
+      </div>
+    </div>
+
+    <div class="api-status" id="apiStatus">
+      <span class="status-dot disconnected"></span>
+      API 연결 상태를 확인하고 있습니다...
+    </div>
+
+    <div class="input-area">
+      <div class="input-container">
+        <input type="text" id="messageInput" class="message-input" 
+               placeholder="여권 관련 질문을 입력하세요..." 
+               onkeypress="handleKeyPress(event)">
+        <button class="send-button" onclick="sendMessage()" id="sendButton">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Panel -->
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-content">
+      <div class="settings-header">
+        <h3>CLOVA Studio RAG API 설정</h3>
+        <button class="close-btn" onclick="toggleSettings()">✕</button>
+      </div>
+      
+      <div class="form-group">
+        <label for="apiEndpoint">API 엔드포인트</label>
+        <input type="text" id="apiEndpoint" 
+               placeholder="https://clovastudio.stream.ntruss.com/v1/api-tools/rag-reasoning"
+               value="https://clovastudio.stream.ntruss.com/v1/api-tools/rag-reasoning">
+      </div>
+      
+      <div class="form-group">
+        <label for="apiKey">API 키</label>
+        <input type="password" id="apiKey" placeholder="nv-xxx..." value="">
+      </div>
+      
+      <div class="form-group">
+        <label for="serviceId">서비스 ID</label>
+        <input type="text" id="serviceId" placeholder="68ad0c206251e148f1b5f32" value="">
+      </div>
+      
+      <div class="form-group">
+        <label for="systemPrompt">시스템 프롬프트</label>
+        <textarea id="systemPrompt" placeholder="AI 역할 정의">당신은 부산광역시 여권발급 업무 전문 상담원입니다. 여권 신규발급, 재발급, 필요서류, 수수료, 절차 등에 대한 정확하고 최신의 정보를 제공하세요. 답변할 때는 관련 법령이나 공식 문서의 근거를 제시하고, 불확실한 내용은 명확히 표현하세요. 부산시민의 입장에서 친절하고 이해하기 쉽게 안내해주세요.</textarea>
+      </div>
+      
+      <div class="form-group">
+        <label for="temperature">Temperature (0.0 - 1.0)</label>
+        <input type="number" id="temperature" min="0" max="1" step="0.1" value="0.3">
+      </div>
+      
+      <button class="save-btn" onclick="saveApiSettings()">설정 저장 및 연결 테스트</button>
+    </div>
+  </div>
+
+  <script>
+    // RAG AI 챗봇 설정
+    let apiConfig = {
+      endpoint: 'https://clovastudio.stream.ntruss.com/v1/api-tools/rag-reasoning',
+      apiKey: '',
+      serviceId: '',
+      systemPrompt: '당신은 부산광역시 여권발급 업무 전문 상담원입니다. 여권 신규발급, 재발급, 필요서류, 수수료, 절차 등에 대한 정확하고 최신의 정보를 제공하세요. 답변할 때는 관련 법령이나 공식 문서의 근거를 제시하고, 불확실한 내용은 명확히 표현하세요. 부산시민의 입장에서 친절하고 이해하기 쉽게 안내해주세요.',
+      temperature: 0.3
+    };
+
+    let conversationHistory = [];
+    let isProcessing = false;
+
+    // 초기화
+    document.addEventListener('DOMContentLoaded', function() {
+      loadSavedSettings();
+      checkApiConnection();
+    });
+
+    // 설정 저장/로드
+    function loadSavedSettings() {
+      const saved = localStorage.getItem('busanPassportChatbotConfig');
+      if (saved) {
+        try {
+          const config = JSON.parse(saved);
+          apiConfig = { ...apiConfig, ...config };
+        } catch (e) {
+          console.log('설정 로드 실패:', e);
+        }
+      }
+    }
+
+    function saveSettings() {
+      localStorage.setItem('busanPassportChatbotConfig', JSON.stringify(apiConfig));
+    }
+
+    // 설정 패널
+    function toggleSettings() {
+      const panel = document.getElementById('settingsPanel');
+      const isVisible = panel.style.display === 'flex';
+      panel.style.display = isVisible ? 'none' : 'flex';
+      
+      if (!isVisible) {
+        document.getElementById('apiEndpoint').value = apiConfig.endpoint;
+        document.getElementById('apiKey').value = apiConfig.apiKey;
+        document.getElementById('serviceId').value = apiConfig.serviceId;
+        document.getElementById('systemPrompt').value = apiConfig.systemPrompt;
+        document.getElementById('temperature').value = apiConfig.temperature;
+      }
+    }
+
+    function saveApiSettings() {
+      apiConfig.endpoint = document.getElementById('apiEndpoint').value.trim();
+      apiConfig.apiKey = document.getElementById('apiKey').value.trim();
+      apiConfig.serviceId = document.getElementById('serviceId').value.trim();
+      apiConfig.systemPrompt = document.getElementById('systemPrompt').value.trim();
+      apiConfig.temperature = parseFloat(document.getElementById('temperature').value);
+      
+      saveSettings();
+      checkApiConnection();
+      toggleSettings();
+    }
+
+    // API 연결 상태 확인
+    async function checkApiConnection() {
+      const statusElement = document.getElementById('apiStatus');
+      
+      if (!apiConfig.apiKey || !apiConfig.serviceId) {
+        updateApiStatus('error', 'API 키와 서비스 ID를 설정해주세요');
+        return;
+      }
+
+      try {
+        updateApiStatus('connecting', 'API 연결을 확인하는 중...');
+        
+        // 간단한 연결 테스트
+        const testMessage = "연결 테스트";
+        const response = await callRagApi(testMessage, true);
+        
+        if (response) {
+          updateApiStatus('connected', 'CLOVA Studio RAG API 연결됨');
+          setTimeout(() => {
+            statusElement.style.display = 'none';
+          }, 3000);
+        }
+      } catch (error) {
+        updateApiStatus('error', `연결 실패: ${error.message}`);
+      }
+    }
+
+    function updateApiStatus(status, message) {
+      const statusElement = document.getElementById('apiStatus');
+      statusElement.className = `api-status ${status}`;
+      statusElement.innerHTML = `<span class="status-dot ${status === 'connected' ? 'connected' : 'disconnected'}"></span>${message}`;
+      statusElement.style.display = 'block';
+    }
+
+    // 메시지 관리
+    function addMessage(text, isUser = false, sources = null) {
+      const messagesContainer = document.getElementById('chatMessages');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
+      
+      const avatar = document.createElement('div');
+      avatar.className = `message-avatar ${isUser ? 'user-avatar' : 'bot-avatar'}`;
+      avatar.textContent = isUser ? '👤' : '🤖';
+      
+      const bubble = document.createElement('div');
+      bubble.className = 'message-bubble';
+      bubble.innerHTML = text.replace(/\n/g, '<br>');
+      
+      // 참조 문서 추가
+      if (sources && sources.length > 0) {
+        const sourcesDiv = document.createElement('div');
+        sourcesDiv.className = 'reference-sources';
+        sourcesDiv.innerHTML = `<strong>참조 문서:</strong><br>${sources.map(s => `• ${s}`).join('<br>')}`;
+        bubble.appendChild(sourcesDiv);
+      }
+      
+      messageDiv.appendChild(avatar);
+      messageDiv.appendChild(bubble);
+      messagesContainer.appendChild(messageDiv);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function showTypingIndicator() {
+      document.getElementById('typingIndicator').style.display = 'flex';
+      document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+    }
+
+    function hideTypingIndicator() {
+      document.getElementById('typingIndicator').style.display = 'none';
+    }
+
+    // RAG API 호출
+    async function callRagApi(message, isTest = false) {
+      if (!apiConfig.endpoint || !apiConfig.apiKey) {
+        throw new Error('API 설정이 완료되지 않았습니다');
+      }
+
+      const messages = [
+        { role: "system", content: apiConfig.systemPrompt }
+      ];
+
+      if (!isTest) {
+        messages.push(...conversationHistory);
+        messages.push({ role: "user", content: message });
+      } else {
+        messages.push({ role: "user", content: "안녕하세요" });
+      }
+
+      const requestBody = {
+        messages: messages,
+        maxTokens: 4000,
+        temperature: apiConfig.temperature,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "search_passport_documents",
+              description: "부산광역시 여권 발급 관련 공식 문서와 규정을 검색합니다. 여권 신청 절차, 필요서류, 수수료, 발급기간, 사진 규격 등의 정보를 조회할 수 있습니다.",
+              parameters: {
+                type: "object",
+                properties: {
+                  query: {
+                    type: "string",
+                    description: "검색할 키워드 (예: 신규발급, 재발급, 필요서류, 수수료 등)"
+                  },
+                  category: {
+                    type: "string",
+                    description: "문서 카테고리",
+                    enum: ["신규발급", "재발급", "필요서류", "수수료", "절차안내", "사진규격", "온라인신청", "일반문의"]
+                  }
+                },
+                required: ["query"]
+              }
+            }
+          }
+        ],
+        toolChoice: "auto"
+      };
+
+      const response = await fetch(apiConfig.endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiConfig.apiKey}`,
+          'Content-Type': 'application/json',
+          'X-NCP-CLOVASTUDIO-API-KEY': apiConfig.apiKey,
+          'X-NCP-APIGW-API-KEY': apiConfig.apiKey
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API 요청 실패 (${response.status}): ${errorText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.status && data.status.code === "20000") {
+        const resultMessage = data.result.message;
+        
+        return {
+          content: resultMessage.content || "죄송합니다. 답변을 생성할 수 없습니다.",
+          toolCalls: resultMessage.toolCalls || [],
+          sources: data.result.citedDocuments || []
+        };
+      } else {
+        throw new Error(`API 오류: ${data.status ? data.status.message : '알 수 없는 오류'}`);
+      }
+    }
+
+    // 메시지 전송
+    async function sendMessage() {
+      if (isProcessing) return;
+      
+      const input = document.getElementById('messageInput');
+      const message = input.value.trim();
+      if (!message) return;
+
+      const sendButton = document.getElementById('sendButton');
+      
+      try {
+        isProcessing = true;
+        sendButton.disabled = true;
+        
+        addMessage(message, true);
+        input.value = '';
+        showTypingIndicator();
+
+        const response = await callRagApi(message);
+        hideTypingIndicator();
+        
+        let botMessage = response.content;
+        let sources = [];
+        
+        // Function calling 처리
+        if (response.toolCalls && response.toolCalls.length > 0) {
+          const toolCall = response.toolCalls[0];
+          const args = JSON.parse(toolCall.function.arguments);
+          
+          // 검색 시뮬레이션 (실제로는 검색 API 호출)
+          const searchResults = simulateDocumentSearch(args.query, args.category);
+          sources = searchResults.sources;
+          
+          if (searchResults.content) {
+            botMessage = searchResults.content;
+          }
+        }
+        
+        addMessage(botMessage, false, sources);
+        
+        // 대화 히스토리 업데이트
+        conversationHistory.push({ role: 'user', content: message });
+        conversationHistory.push({ role: 'assistant', content: botMessage });
+        
+        // 히스토리 제한 (최근 10개 대화)
+        if (conversationHistory.length > 20) {
+          conversationHistory = conversationHistory.slice(-20);
+        }
+
+      } catch (error) {
+        hideTypingIndicator();
+        addMessage(`오류가 발생했습니다: ${error.message}<br><br>API 설정을 확인해주세요.`, false);
+        console.error('API 호출 오류:', error);
+      } finally {
+        isProcessing = false;
+        sendButton.disabled = false;
+      }
+    }
+
+    // 문서 검색 시뮬레이션 (실제 구현에서는 실제 검색 API 사용)
+    function simulateDocumentSearch(query, category) {
+      const mockResponses = {
+        "신규발급": {
+          content: "부산광역시에서 신규 여권을 발급받으려면 다음 절차를 따르세요:\n\n1. **필요서류 준비**\n- 여권발급신청서 1부\n- 여권용 사진 1매 (3.5×4.5cm, 6개월 이내 촬영)\n- 신분증 (주민등록증, 운전면허증 등)\n- 기본증명서 1부 (주민센터 발급)\n\n2. **수수료**\n- 10년 복수여권: 53,000원\n- 5년 복수여권: 50,000원\n- 단수여권: 20,000원\n\n3. **발급절차**\n- 부산지방여권사무소 또는 구·군청 여권업무 담당부서 방문\n- 서류 제출 및 수수료 납부\n- 본인 확인 절차\n- 4-6일 후 수령 (긴급발급 시 1-2일)\n\n온라인 사전신청도 가능합니다.",
+          sources: ["여권법 시행령", "부산광역시 여권업무 처리지침", "외교부 여권발급 안내"]
+        },
+        "재발급": {
+          content: "여권 재발급이 필요한 경우와 절차를 안내드립니다:\n\n**재발급 사유**\n- 유효기간 만료\n- 여권 분실/도난\n- 여권 훼손\n- 개명 등 인적사항 변경\n- 사증란 부족\n\n**필요서류**\n- 여권발급신청서\n- 여권용 사진 1매\n- 신분증\n- 기존 여권 (있는 경우)\n- 분실신고서 (분실 시)\n- 가족관계증명서 (개명 시)\n\n**수수료**: 신규발급과 동일\n\n**소요기간**: 4-6일 (긴급발급 시 1-2일, 추가 수수료 20,000원)\n\n분실 시에는 즉시 여권분실신고를 해주세요.",
+          sources: ["여권법", "부산시 여권 재발급 업무처리 매뉴얼", "여권 분실신고 규정"]
+        },
+        "수수료": {
+          content: "부산시 여권 발급 수수료 안내:\n\n**일반 여권**\n- 10년 복수여권: 53,000원\n- 5년 복수여권: 50,000원\n- 단수여권: 20,000원\n\n**긴급 발급 시 추가수수료**\n- 20,000원 (일반 수수료에 추가)\n\n**결제 방법**\n- 현금\n- 신용카드\n- 체크카드\n\n**면제 대상**\n- 국가유공자 본인\n- 독립유공자 본인\n- 5.18 민주유공자 본인\n- 기타 법령에서 정한 면제 대상자\n\n면제 대상자는 관련 증명서를 지참해주세요.",
+          sources: ["여권 수수료 고시", "부산시 여권업무 수수료 규정", "국가유공자 예우법"]
+        },
+        "사진규격": {
+          content: "여권용 사진 규격 안내:\n\n**크기**: 3.5cm × 4.5cm\n\n**촬영 기준**\n- 6개월 이내 촬영\n- 정면 응시, 무표정 또는 자연스러운 표정\n- 머리 길이: 2.3~3.6cm (턱 끝에서 정수리까지)\n- 얼굴 길이: 2.5~3.5cm (턱 끝에서 눈썹까지)\n\n**배경**: 흰색 또는 옅은 회색\n\n**복장**\n- 일상복 착용\n- 제복, 흰색 의상 지양\n- 모자, 선글라스, 컬러렌즈 착용 금지\n\n**종교적 의상**: 일상적 착용 시 허용\n\n**주의사항**\n- 포토샵 등 과도한 보정 금지\n- 인화지에 출력 (디지털 출력 불가)\n- 접착제 사용 금지 (스테이플러 이용)\n\n규격에 맞지 않으면 재촬영이 필요할 수 있습니다.",
+          sources: ["ICAO 여권사진 표준", "외교부 여권사진 규격 안내", "부산시 여권사진 검수 기준"]
+        }
+      };
+
+      const response = mockResponses[category] || mockResponses[query] || {
+        content: "해당 질문에 대한 구체적인 정보를 찾고 있습니다. 부산광역시 여권업무와 관련된 자세한 내용은 부산지방여권사무소(051-440-4600) 또는 부산시청 민원콜센터(120)로 문의하시면 정확한 안내를 받으실 수 있습니다.",
+        sources: ["부산광역시 여권업무 안내", "부산지방여권사무소 연락처"]
+      };
+
+      return response;
+    }
+
+    // 퀵 질문
+    function askQuestion(question) {
+      document.getElementById('messageInput').value = question;
+      sendMessage();
+    }
+
+    // 키보드 이벤트
+    function handleKeyPress(event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+      }
+    }
+
+    // 대화 초기화
+    function clearChat() {
+      if (confirm('대화 내역을 모두 삭제하시겠습니까?')) {
+        conversationHistory = [];
+        const messagesContainer = document.getElementById('chatMessages');
+        messagesContainer.innerHTML = `
+          <div class="message bot">
+            <div class="message-avatar bot-avatar">🤖</div>
+            <div class="message-bubble">
+              대화가 초기화되었습니다.<br>
+              여권 관련 질문을 언제든 해주세요!
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // 설정 패널 외부 클릭 시 닫기
+    document.getElementById('settingsPanel').addEventListener('click', function(e) {
+      if (e.target === this) {
+        toggleSettings();
+      }
+    });
+  </script>
+</body>
+</html>
